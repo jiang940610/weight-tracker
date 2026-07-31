@@ -397,6 +397,59 @@
     grid-template-columns: 1fr 1fr;
     gap: 20px;
   }
+
+  /* 可折叠设置区 */
+  .settings-summary {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.15s;
+    user-select: none;
+  }
+  .settings-summary:hover { background: rgba(16,185,129,0.08); }
+  .settings-summary .summary-icon { font-size: 22px; flex: 0 0 auto; }
+  .settings-summary .summary-content { flex: 1; }
+  .settings-summary .summary-title { font-size: 14px; font-weight: 600; color: var(--text); }
+  .settings-summary .summary-detail { font-size: 12px; color: var(--text-light); margin-top: 2px; }
+  .settings-summary .summary-arrow {
+    font-size: 22px; color: var(--text-light); flex: 0 0 auto;
+    transform: rotate(90deg); transition: transform 0.2s;
+  }
+
+  .settings-body { display: none; }
+  .settings-body.open { display: block; }
+
+  .collapse-btn {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: var(--text-light);
+    font-size: 12px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-family: inherit;
+  }
+  .collapse-btn:hover { background: var(--bg); color: var(--text); }
+
+  /* 危险区 */
+  .danger-zone {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px dashed #fca5a5;
+  }
+  .btn-danger {
+    background: #fef2f2;
+    color: var(--danger);
+    border: 1.5px solid #fecaca;
+  }
+  .btn-danger:hover {
+    background: #fee2e2;
+    border-color: #fca5a5;
+  }
   @media (max-width: 768px) {
     .two-col { grid-template-columns: 1fr; }
   }
@@ -427,15 +480,9 @@
           <label>日期</label>
           <input type="date" id="recordDate">
         </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>体重 (斤)</label>
-            <input type="number" id="recordWeight" step="0.1" min="40" max="600" placeholder="如 131">
-          </div>
-          <div class="form-group">
-            <label>身高 (cm)</label>
-            <input type="number" id="recordHeight" step="0.1" min="50" max="250" placeholder="如 170">
-          </div>
+        <div class="form-group">
+          <label>体重 (斤)</label>
+          <input type="number" id="recordWeight" step="0.1" min="40" max="600" placeholder="如 131">
         </div>
         <div class="form-group">
           <label>备注 (可选)</label>
@@ -444,26 +491,50 @@
         <button class="btn btn-primary" onclick="addRecord()">添加记录</button>
       </div>
 
-      <!-- 目标设置 -->
+      <!-- 设置（身高 / 目标 / 清空）可折叠 -->
       <div class="card goal-section">
-        <div class="card-title"><span class="icon">🎯</span> 体重目标</div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>目标体重 (斤)</label>
-            <input type="number" id="goalWeight" step="0.1" min="20" max="300" placeholder="如 60">
+        <!-- 折叠状态：摘要条 -->
+        <div id="settingsSummary" class="settings-summary" onclick="toggleSettings(true)">
+          <div class="summary-icon">⚙️</div>
+          <div class="summary-content">
+            <div class="summary-title">身高与目标设置</div>
+            <div class="summary-detail" id="summaryDetail">未设置，点击展开</div>
+          </div>
+          <div class="summary-arrow">›</div>
+        </div>
+
+        <!-- 展开状态：编辑区 -->
+        <div id="settingsBody" class="settings-body">
+          <div class="card-title" style="margin-bottom:14px;">
+            <span class="icon">⚙️</span> 身高与目标设置
+            <button class="collapse-btn" onclick="toggleSettings(false)">收起 ▴</button>
           </div>
           <div class="form-group">
-            <label>目标日期</label>
-            <input type="date" id="goalDate">
+            <label>身高 (cm)</label>
+            <input type="number" id="recordHeight" step="0.1" min="50" max="250" placeholder="如 170">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>目标体重 (斤)</label>
+              <input type="number" id="goalWeight" step="0.1" min="20" max="300" placeholder="如 120">
+            </div>
+            <div class="form-group">
+              <label>目标日期</label>
+              <input type="date" id="goalDate">
+            </div>
+          </div>
+          <div id="goalProgressBox" style="display:none; margin-top: 14px;">
+            <div class="progress-bar">
+              <div class="progress-fill" id="goalProgressFill"></div>
+            </div>
+            <div class="goal-detail" id="goalDetail"></div>
+          </div>
+          <button class="btn btn-primary" onclick="saveSettings()" style="margin-top:10px;">保存设置</button>
+
+          <div class="danger-zone">
+            <button class="btn btn-danger" onclick="clearAllData()">🗑 一键清空所有体重记录</button>
           </div>
         </div>
-        <div id="goalProgressBox" style="display:none; margin-top: 14px;">
-          <div class="progress-bar">
-            <div class="progress-fill" id="goalProgressFill"></div>
-          </div>
-          <div class="goal-detail" id="goalDetail"></div>
-        </div>
-        <button class="btn btn-primary" onclick="saveGoal()" style="margin-top:10px;">保存目标</button>
       </div>
     </div>
 
@@ -529,6 +600,10 @@ function init() {
   if (goal.weight) document.getElementById('goalWeight').value = goal.weight;
   if (goal.date) document.getElementById('goalDate').value = goal.date;
 
+  // 初始折叠状态：已设置过身高或目标则折叠，否则展开
+  updateSettingsSummary();
+  toggleSettings(!(profile.height || goal.weight));
+
   renderAll();
 }
 
@@ -551,17 +626,10 @@ function toast(msg, type='') {
 function addRecord() {
   const date = document.getElementById('recordDate').value;
   const weight = parseFloat(document.getElementById('recordWeight').value);
-  const height = parseFloat(document.getElementById('recordHeight').value);
   const note = document.getElementById('recordNote').value.trim();
 
   if (!date) { toast('请选择日期', 'error'); return; }
   if (!weight || weight < 40 || weight > 600) { toast('请输入有效体重 (40-600斤)', 'error'); return; }
-
-  // 保存身高到档案
-  if (height) {
-    profile.height = height;
-    localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
-  }
 
   // 同日期则更新
   const idx = records.findIndex(r => r.date === date);
@@ -582,14 +650,65 @@ function addRecord() {
   renderAll();
 }
 
-// 保存目标
-function saveGoal() {
+// 保存设置（身高 + 目标）
+function saveSettings() {
+  const height = parseFloat(document.getElementById('recordHeight').value);
   const weight = parseFloat(document.getElementById('goalWeight').value);
   const date = document.getElementById('goalDate').value;
-  if (!weight || weight < 40 || weight > 600) { toast('请输入有效目标体重', 'error'); return; }
-  goal = { weight, date };
-  localStorage.setItem(GOAL_KEY, JSON.stringify(goal));
-  toast('目标已保存', 'success');
+
+  if (height && (height < 50 || height > 250)) { toast('请输入有效身高 (50-250cm)', 'error'); return; }
+  if (height) {
+    profile.height = height;
+    localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+  }
+  if (weight) {
+    if (weight < 40 || weight > 600) { toast('请输入有效目标体重', 'error'); return; }
+    goal = { weight, date };
+    localStorage.setItem(GOAL_KEY, JSON.stringify(goal));
+  }
+
+  toast('设置已保存', 'success');
+  updateSettingsSummary();
+  renderAll();
+  // 保存后自动折叠
+  if (profile.height || goal.weight) toggleSettings(false);
+}
+
+// 折叠/展开设置区
+function toggleSettings(open) {
+  const body = document.getElementById('settingsBody');
+  const summary = document.getElementById('settingsSummary');
+  if (open) {
+    body.classList.add('open');
+    summary.style.display = 'none';
+  } else {
+    body.classList.remove('open');
+    summary.style.display = 'flex';
+  }
+}
+
+// 更新设置摘要
+function updateSettingsSummary() {
+  const parts = [];
+  if (profile.height) parts.push(`身高 ${profile.height}cm`);
+  if (goal.weight) parts.push(`目标 ${goal.weight.toFixed(1)}斤`);
+  if (goal.date) {
+    const d = parseDate(goal.date);
+    parts.push(`${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`);
+  }
+  document.getElementById('summaryDetail').textContent = parts.length ? parts.join(' · ') : '未设置，点击展开';
+}
+
+// 一键清空所有体重记录
+function clearAllData() {
+  if (records.length === 0) { toast('暂无记录可清空', 'error'); return; }
+  const sure = confirm(`确定清空全部 ${records.length} 条体重记录吗？\n\n此操作不可恢复，身高和目标设置会保留。`);
+  if (!sure) return;
+  const reallySure = confirm('再次确认：真的要删除所有体重记录吗？');
+  if (!reallySure) return;
+  records = [];
+  localStorage.removeItem(STORAGE_KEY);
+  toast('已清空所有记录', 'success');
   renderAll();
 }
 
